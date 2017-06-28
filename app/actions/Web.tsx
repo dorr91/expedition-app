@@ -43,7 +43,7 @@ export function search(numPlayers: number, user: UserState, search: SearchSettin
       throw new Error('Not logged in, cannot search');
     }
 
-    let params: any = { players: numPlayers, ...search };
+    const params: any = { players: numPlayers, ...search };
     Object.keys(params).forEach((key: string) => { if (params[key] === null) { delete params[key]; }});
 
     const xhr = new XMLHttpRequest();

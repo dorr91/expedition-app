@@ -21,7 +21,7 @@ export default class StarRating extends React.Component<StarRatingProps, {}> {
     const stars = [1,2,3,4,5].map((i: number): JSX.Element => {
       const onClick = this.props.readOnly ? undefined : this.props.onChange.bind(this, i);
       const checked = (i <= this.props.value);
-      let classes = ['star'];
+      const classes = ['star'];
       if (!this.props.readOnly) {
         classes.push('editable');
       }

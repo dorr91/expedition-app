@@ -55,10 +55,10 @@ function renderSelectTier(props: CombatProps): JSX.Element {
 }
 
 function renderDrawEnemies(props: CombatProps): JSX.Element {
-  let enemyNames: Set<string> = new Set();
   let repeatEnemy = false;
   let uniqueEnemy = false;
-  let enemies: JSX.Element[] = props.enemies.map((enemy: Enemy, index: number) => {
+  const enemyNames: Set<string> = new Set();
+  const enemies: JSX.Element[] = props.enemies.map((enemy: Enemy, index: number) => {
     uniqueEnemy = uniqueEnemy || !enemy.class;
     let icon = null;
     if (enemy.class) {

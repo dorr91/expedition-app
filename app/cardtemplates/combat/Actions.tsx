@@ -11,7 +11,7 @@ var cheerio: any = require('cheerio');
 
 function getDifficultySettings(difficulty: DifficultyType): CombatDifficultySettings {
   // TODO(semartin): Make this a constant.
-  switch(difficulty) {
+  switch (difficulty) {
     case 'EASY':
     return {
       roundTimeMillis: 20000,
@@ -42,12 +42,12 @@ function getDifficultySettings(difficulty: DifficultyType): CombatDifficultySett
 }
 
 function getEnemies(node: ParserNode): Enemy[] {
-  let enemies: Enemy[] = [];
+  const enemies: Enemy[] = [];
   node.loopChildren((tag, c) => {
     if (tag !== 'e') {
       return;
     }
-    let text = c.text();
+    const text = c.text();
     const encounter = encounters[text.toLowerCase()];
 
     if (!encounter) {
@@ -74,7 +74,7 @@ function generateCombatAttack(node: ParserNode, settings: SettingsType, elapsedM
 
   // Attack once for each tier
   let damage = 0;
-  for (var i = 0; i < attackCount; i++) {
+  for (let i = 0; i < attackCount; i++) {
     damage += randomAttackDamage();
   }
 
@@ -183,7 +183,7 @@ export function initCombat(node: ParserNode, settings: SettingsType, custom?: bo
     let enemies: Enemy[] = [];
     if (node.elem) {
       enemies = getEnemies(node);
-      for (let enemy of enemies) {
+      for (const enemy of enemies) {
         tierSum += enemy.tier;
       }
     }

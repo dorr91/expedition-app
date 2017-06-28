@@ -72,8 +72,8 @@ const options = {
               // We can add these when we feel like having more style enforcement
               //noUnusedVariables: true,
               //noVarKeyword: true,
-              //preferConst: true,
-              //trailingComma: true,
+              preferConst: true,
+              trailingComma: true,
             },
           },
           emitErrors: true,

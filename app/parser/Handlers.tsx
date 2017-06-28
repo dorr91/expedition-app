@@ -37,7 +37,7 @@ export function handleAction(pnode: ParserNode, action: number|string): ParserNo
   // Immediately act on any gotos (with a max depth)
   let i = 0;
   for (; i < MAX_GOTO_FOLLOW_DEPTH && pnode !== null && pnode.getTag() === 'trigger'; i++) {
-    let id = getTriggerId(pnode.elem);
+    const id = getTriggerId(pnode.elem);
     if (id) {
       pnode = pnode.gotoId(id);
     } else {
