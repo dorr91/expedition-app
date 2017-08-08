@@ -2,7 +2,7 @@ import * as React from 'react'
 import Button from '../../components/base/Button'
 import Callout from '../../components/base/Callout'
 import Card from '../../components/base/Card'
-import {SettingsType} from '../../reducers/StateTypes'
+import {SettingsType, CardThemeType} from '../../reducers/StateTypes'
 import {ParserNode} from '../../parser/Node'
 import {Choice, QuestContext, RoleplayElement} from '../../reducers/QuestTypes'
 
@@ -11,6 +11,7 @@ import {REGEX} from '../../Constants'
 export interface RoleplayStateProps {
   node: ParserNode;
   settings: SettingsType;
+  onReturn?: () => any;
 }
 
 export interface RoleplayDispatchProps {
@@ -36,9 +37,9 @@ export interface RoleplayResult {
 
 export function loadRoleplayNode(node: ParserNode): RoleplayResult {
   // Append elements to contents
-  let choices: Choice[] = [];
+  const choices: Choice[] = [];
   let choiceCount = -1;
-  let content: RoleplayElement[] = [];
+  const content: RoleplayElement[] = [];
 
   node.loopChildren((tag, c) => {
     c = c.clone();
@@ -97,11 +98,9 @@ export function loadRoleplayNode(node: ParserNode): RoleplayResult {
     choices.push({text: buttonText, idx: 0});
   }
 
-  let title = node.elem.attr('title');
-  let icon = node.elem.attr('icon');
   return {
-    title,
-    icon,
+    title: node.elem.attr('title'),
+    icon: node.elem.attr('icon'),
     content,
     choices,
     ctx: node.ctx,
@@ -109,7 +108,7 @@ export function loadRoleplayNode(node: ParserNode): RoleplayResult {
 }
 
 // TODO(scott): Convert this into a Template class implementation
-const Roleplay = (props: RoleplayProps): JSX.Element => {
+const Roleplay = (props: RoleplayProps, theme: CardThemeType = 'LIGHT'): JSX.Element => {
   const rpResult = loadRoleplayNode(props.node)
 
   const renderedContent: JSX.Element[] = rpResult.content.map((element: RoleplayElement, idx: number): JSX.Element => {
@@ -143,7 +142,7 @@ const Roleplay = (props: RoleplayProps): JSX.Element => {
   });
 
   return (
-    <Card title={rpResult.title} icon={rpResult.icon} inQuest={true}>
+    <Card title={rpResult.title} icon={rpResult.icon} inQuest={true} theme={theme} onReturn={props.onReturn}>
       {renderedContent}
       {buttons}
     </Card>

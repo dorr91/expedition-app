@@ -2,7 +2,7 @@ import * as React from 'react'
 import {Provider} from 'react-redux'
 import Snackbar from 'material-ui/Snackbar'
 
-import AdvancedPlayContainer from '../AdvancedPlayContainer'
+import ToolsContainer from '../ToolsContainer'
 import FeaturedQuestsContainer from '../FeaturedQuestsContainer'
 import PlayerCountSettingContainer from '../PlayerCountSettingContainer'
 import ReportContainer from '../ReportContainer'
@@ -32,7 +32,7 @@ export default class Main extends React.Component<MainProps, {}> {
   }
 
   getUpdatedState() {
-    let state: AppStateWithHistory = getStore().getState();
+    const state: AppStateWithHistory = getStore().getState();
     if (state === undefined || this.state === undefined || Object.keys(state).length === 0) {
       return {key: 0, transition: 'INSTANT' as TransitionType, card: <SplashScreenContainer/>, snackbar: { open: false, message: '' }};
     }
@@ -73,7 +73,7 @@ export default class Main extends React.Component<MainProps, {}> {
         card = <QuestEndContainer/>;
         break;
       case 'ADVANCED':
-        card = <AdvancedPlayContainer />;
+        card = <ToolsContainer />;
         break;
       case 'SEARCH_CARD':
         card = <SearchContainer phase={state.card.phase as SearchPhase} />;

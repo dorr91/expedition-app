@@ -1,4 +1,3 @@
-import {mount} from 'enzyme'
 import {handleAction, getEventParameters} from './Handlers'
 import {defaultQuestContext} from '../reducers/Quest'
 import {ParserNode} from './Node'
@@ -48,6 +47,13 @@ describe('Handlers', () => {
       const node = cheerio.load('<roleplay><choice><trigger id="5">goto 5</trigger></choice></roleplay>')('roleplay');
       const result = handleAction(new ParserNode(node, defaultQuestContext()), 0);
       expect(result).toEqual(null);
+    });
+
+    it('triggers events', () => {
+      // Note that this even works for handling reserved (e.g. "end") triggers.
+      const node = cheerio.load('<roleplay id="rp1"><choice><trigger>end</trigger></choice><choice on="end"><roleplay>expected</roleplay></choice></roleplay>')('#rp1');
+      const result = handleAction(new ParserNode(node, defaultQuestContext()), 0);
+      expect(result.elem.text()).toEqual('expected');
     });
 
     /* TODO

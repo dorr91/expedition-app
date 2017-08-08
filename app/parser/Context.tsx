@@ -16,7 +16,7 @@ export function evaluateContentOps(content: string, ctx: QuestContext): string {
   }
 
   let result = '';
-  for (let m of matches) {
+  for (const m of matches) {
     const op = parseOpString(m);
     if (op) {
       const evalResult = evaluateOp(op, ctx);
@@ -91,7 +91,22 @@ export function updateContext(node: Cheerio, ctx: QuestContext, action?: string|
   }
 
   const nodeId = node.attr('id');
-  let newContext: QuestContext = Clone(ctx);
+
+  // Special handling of roleplay node - this is readonly and cannot be cloned.
+  let tmpCombatRoleplay: any = null;
+  if (ctx.templates && ctx.templates.combat && ctx.templates.combat.roleplay) {
+    tmpCombatRoleplay = ctx.templates.combat.roleplay;
+    ctx.templates.combat.roleplay = null;
+  }
+
+  const newContext: QuestContext = Clone(ctx);
+
+  // Reassign readonly (uncopyable) attributes
+  if (tmpCombatRoleplay) {
+    newContext.templates.combat.roleplay = tmpCombatRoleplay.clone();
+    ctx.templates.combat.roleplay = tmpCombatRoleplay;
+  }
+
   if (nodeId) {
     newContext.views[nodeId] = (newContext.views[nodeId] || 0) + 1;
   }
@@ -99,11 +114,10 @@ export function updateContext(node: Cheerio, ctx: QuestContext, action?: string|
     newContext.path.push(action);
   }
 
-  // TODO(scott): This is a hack to remove dependency on defaultQuestContext, which adds a bunch
-  // of unnecessary dependencies in the quest service.
-  newContext.scope._.viewCount = function(id: string): number {
-    return this.views[id] || 0;
-  }.bind(newContext);
-
+  // Create new copies of all scope functions and bind them
+  newContext.scope._ = newContext._templateScopeFn();
+  for (const k of Object.keys(newContext.scope._)) {
+    newContext.scope._[k] = (newContext.scope._[k] as any).bind(newContext);
+  }
   return newContext;
 }

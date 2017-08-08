@@ -7,11 +7,12 @@ import TimerCard from '../../components/base/TimerCard'
 import theme from '../../Theme'
 import {MAX_ADVENTURER_HEALTH, REGEX} from '../../Constants'
 import {encounters} from '../../Encounters'
-import {isSurgeRound} from './Actions'
+import {isSurgeNextRound} from './Actions'
 import {SettingsType, CardState, CardName} from '../../reducers/StateTypes'
 import {ParserNode} from '../../parser/Node'
 import {QuestContext, EventParameters, Enemy, Loot} from '../../reducers/QuestTypes'
 import {CombatState, CombatPhase} from './State'
+import Roleplay from '../roleplay/Roleplay'
 
 export interface CombatStateProps extends CombatState {
   card: CardState;
@@ -26,11 +27,13 @@ export interface CombatDispatchProps {
   onDefeat: (node: ParserNode, settings: SettingsType, maxTier: number) => void;
   onVictory: (node: ParserNode, settings: SettingsType, maxTier: number) => void;
   onTimerStop: (node: ParserNode, settings: SettingsType, elapsedMillis: number, surge: boolean) => void;
-  onPostTimerReturn: () => void;
+  onReturn: () => void;
   onTierSumDelta: (node: ParserNode, delta: number) => void;
   onAdventurerDelta: (node: ParserNode, settings: SettingsType, delta: number) => void;
   onEvent: (node: ParserNode, event: string) => void;
   onCustomEnd: () => void;
+  onChoice: (settings: SettingsType, parent: ParserNode, index: number) => void;
+  onSurgeNext: (node: ParserNode) => void;
 }
 
 export interface CombatProps extends CombatStateProps, CombatDispatchProps {};
@@ -55,10 +58,10 @@ function renderSelectTier(props: CombatProps): JSX.Element {
 }
 
 function renderDrawEnemies(props: CombatProps): JSX.Element {
-  let enemyNames: Set<string> = new Set();
   let repeatEnemy = false;
   let uniqueEnemy = false;
-  let enemies: JSX.Element[] = props.enemies.map((enemy: Enemy, index: number) => {
+  const enemyNames: Set<string> = new Set();
+  const enemies: JSX.Element[] = props.enemies.map((enemy: Enemy, index: number) => {
     uniqueEnemy = uniqueEnemy || !enemy.class;
     let icon = null;
     if (enemy.class) {
@@ -146,11 +149,11 @@ function renderSurge(props: CombatProps): JSX.Element {
     <Card title="Enemy Surge!"
       theme="RED"
       inQuest={true}
-      onReturn={() => props.onPostTimerReturn()}
+      onReturn={() => props.onReturn()}
     >
       <h3>An enemy surge occurs!</h3>
       {helpText}
-      <Button onTouchTap={() => props.onNext('RESOLVE_ABILITIES')}>Next</Button>
+      <Button onTouchTap={() => props.onSurgeNext(props.node)}>Next</Button>
     </Card>
   );
 }
@@ -183,7 +186,7 @@ function renderResolve(props: CombatProps): JSX.Element {
   }
 
   return (
-    <Card title="Roll &amp; Resolve" theme="DARK" inQuest={true} onReturn={() => props.onPostTimerReturn()}>
+    <Card title="Roll &amp; Resolve" theme="DARK" inQuest={true} onReturn={() => props.onReturn()}>
       {helpText}
       {renderedRolls &&
         <div>
@@ -240,7 +243,7 @@ function renderPlayerTier(props: CombatProps): JSX.Element {
 }
 
 function renderVictory(props: CombatProps): JSX.Element {
-  var contents: JSX.Element[] = [];
+  const contents: JSX.Element[] = [];
 
   if (props.victoryParameters) {
     if (props.victoryParameters.heal > 0 && props.victoryParameters.heal < MAX_ADVENTURER_HEALTH) {
@@ -293,7 +296,7 @@ function renderVictory(props: CombatProps): JSX.Element {
 }
 
 function renderDefeat(props: CombatProps): JSX.Element {
-  var helpText = <span></span>
+  let helpText = <span></span>;
   if (props.settings.showHelp) {
     helpText = <p>Remember, you can adjust combat difficulty at any time in the settings menu at the top right of the app.</p>
   }
@@ -308,7 +311,7 @@ function renderDefeat(props: CombatProps): JSX.Element {
 }
 
 function renderTimerCard(props: CombatProps): JSX.Element {
-  const surge = isSurgeRound(props.node);
+  const surge = isSurgeNextRound(props.node);
   const surgeWarning = (props.settings.difficulty === 'EASY' && surge) ? 'Surge Imminent' : null;
   let instruction = null;
   if (props.settings.showHelp) {
@@ -328,6 +331,21 @@ function renderTimerCard(props: CombatProps): JSX.Element {
       roundTimeTotalMillis={props.roundTimeMillis}
       onTimerStop={(ms: number) => props.onTimerStop(props.node, props.settings, ms, surge)} />
   );
+}
+
+function renderMidCombatRoleplay(props: CombatProps): JSX.Element {
+  // Empty card to handle default case of no roleplay (happens when just starting into the RP section).
+  if (!props.node.ctx.templates.combat.roleplay) {
+    return (<Card title="" inQuest={true} theme="DARK"></Card>);
+  }
+
+  const roleplay = Roleplay({
+    node: props.node.ctx.templates.combat.roleplay,
+    settings: props.settings,
+    onChoice: (settings: SettingsType, node: ParserNode, index: number) => {props.onChoice(settings, props.node, index)},
+    onReturn: () => {props.onReturn()},
+  }, 'DARK');
+  return roleplay;
 }
 
 function numberToWord(input: number): string {
@@ -371,11 +389,11 @@ const Combat = (props: CombatProps): JSX.Element => {
       return renderVictory(props);
     case 'DEFEAT':
       return renderDefeat(props);
+    case 'ROLEPLAY':
+      return renderMidCombatRoleplay(props);
     default:
       throw new Error('Unknown combat phase ' + props.card.phase);
   }
 }
 
 export default Combat;
-
-

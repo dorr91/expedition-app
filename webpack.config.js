@@ -3,7 +3,7 @@
 const webpack = require('webpack');
 const DashboardPlugin = require('webpack-dashboard/plugin');
 const path = require('path');
-const port = process.env.DOCKER_PORT || 8081;
+const port = process.env.DOCKER_PORT || 8082;
 
 const options = {
   cache: true,
@@ -12,8 +12,8 @@ const options = {
     'promise-polyfill',
     'webpack-dev-server/client?http://localhost:' + port,
     'webpack/hot/only-dev-server',
-    './app/React.tsx',
-    './app/style.scss',
+    './app/Main.tsx',
+    './app/Style.scss',
   ],
   resolve: {
     extensions: ['.js', '.ts', '.tsx', '.json'],
@@ -26,8 +26,7 @@ const options = {
     hot: true,
     quiet: false,
     noInfo: false,
-    historyApiFallback: true,
-    watchOptions: ((process.env.WATCH_POLL) ? {aggregateTimeout: 300, poll: 1000} : {}),
+    historyApiFallback: true
   },
   output: {
     path: path.join(__dirname, 'dist'),
@@ -71,11 +70,12 @@ const options = {
               typeofCompare: true,
               useIsnan: true,
               indent: [true, "spaces"],
-              // We can add these when we feel like having more style enforcement
-              //noUnusedVariables: true,
-              //noVarKeyword: true,
-              //preferConst: true,
-              //trailingComma: true,
+              // This can be uncommented occassionally to help clean up the codebase
+              // But complains about enough false things that it's not worth leaving on
+              // noUnusedVariable: true,
+              noVarKeyword: true,
+              preferConst: true,
+              trailingComma: true,
             },
           },
           emitErrors: true,

@@ -1,5 +1,7 @@
 import {encounters} from '../../Encounters'
 import {Enemy, Loot} from '../../reducers/QuestTypes'
+import {ParserNode} from '../../parser/Node'
+import {isSurgeRound} from './Actions'
 
 export interface CombatAttack {
   surge: boolean;
@@ -13,6 +15,7 @@ export interface MidCombatPhase {
   numAliveAdventurers: number;
   roundCount: number;
   tier: number;
+  roleplay?: ParserNode;
 }
 export interface EndCombatPhase {
   levelUp?: boolean;
@@ -29,7 +32,7 @@ export interface CombatState extends CombatDifficultySettings, MidCombatPhase, E
   custom: boolean;
 }
 
-export type CombatPhase = 'DRAW_ENEMIES' | 'PREPARE' | 'TIMER' | 'SURGE' | 'RESOLVE_ABILITIES' | 'ENEMY_TIER' | 'PLAYER_TIER' | 'VICTORY' | 'DEFEAT';
+export type CombatPhase = 'DRAW_ENEMIES' | 'PREPARE' | 'TIMER' | 'SURGE' | 'RESOLVE_ABILITIES' | 'ENEMY_TIER' | 'PLAYER_TIER' | 'VICTORY' | 'DEFEAT' | 'ROLEPLAY';
 
 export function combatScope() {
   return {
@@ -53,6 +56,12 @@ export function combatScope() {
           .filter( key => encounters[key].tier === tier )
           .filter( key => encounters[key].class.toLowerCase() === className )
           .map( key => ({ [key]: encounters[key] }) ) )).name;
+    },
+    currentCombatRound: function(): number {
+      return this.templates.combat.roundCount || 0;
+    },
+    isCombatSurgeRound: function(): boolean {
+      return isSurgeRound(this.templates.combat.roundCount, this.templates.combat.surgePeriod);
     },
   };
 }

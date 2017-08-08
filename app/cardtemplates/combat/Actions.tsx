@@ -6,50 +6,61 @@ import {CombatDifficultySettings, CombatAttack} from './Types'
 import {SettingsType} from '../../reducers/StateTypes'
 import {ParserNode} from '../../parser/Node'
 import {toCard} from '../../actions/Card'
+import {COMBAT_DIFFICULTY, PLAYER_TIME_MULT} from '../../Constants'
 import {encounters} from '../../Encounters'
 import {QuestNodeAction} from '../../actions/ActionTypes'
+import {handleTriggerEvent} from '../../parser/Handlers'
+import {loadNode} from '../../actions/Quest'
 
-var cheerio: any = require('cheerio');
+const cheerio: any = require('cheerio');
 
-function getDifficultySettings(difficulty: DifficultyType): CombatDifficultySettings {
-  // TODO(semartin): Make this a constant.
-  switch(difficulty) {
-    case 'EASY':
-    return {
-      roundTimeMillis: 20000,
-      surgePeriod: 4,
-      damageMultiplier: 0.7,
+export function initCombat(node: ParserNode, settings: SettingsType, custom?: boolean) {
+  return (dispatch: Redux.Dispatch<any>): any => {
+    let tierSum: number = 0;
+    let enemies: Enemy[] = [];
+    if (node.elem) {
+      enemies = getEnemies(node);
+      for (const enemy of enemies) {
+        tierSum += enemy.tier;
+      }
+    }
+    node = node.clone();
+    node.ctx.templates.combat = {
+      custom: custom || false,
+      enemies,
+      roundCount: 0,
+      numAliveAdventurers: settings.numPlayers,
+      tier: tierSum,
+      ...getDifficultySettings(settings.difficulty, settings.numPlayers),
     };
-    case 'NORMAL':
+    dispatch(toCard('QUEST_CARD', 'DRAW_ENEMIES'));
+    dispatch({type: 'QUEST_NODE', node} as QuestNodeAction);
+  };
+}
+
+export function initCustomCombat(settings: SettingsType) {
+  return initCombat(new ParserNode(cheerio.load('<combat></combat>')('combat'), defaultQuestContext()), settings, true);
+}
+
+function getDifficultySettings(difficulty: DifficultyType, numPlayers: number): CombatDifficultySettings {
+  const result = COMBAT_DIFFICULTY[difficulty];
+  if (result === null) {
+    throw new Error('Unknown difficulty ' + difficulty);
+  } else {
     return {
-      roundTimeMillis: 10000,
-      surgePeriod: 3,
-      damageMultiplier: 1.0,
+      ...result,
+      roundTimeMillis: result.roundTimeMillis * (PLAYER_TIME_MULT[numPlayers] || 1),
     };
-    case 'HARD':
-    return {
-      roundTimeMillis: 8000,
-      surgePeriod: 3,
-      damageMultiplier: 1.5,
-    };
-    case 'IMPOSSIBLE':
-    return {
-      roundTimeMillis: 6000,
-      surgePeriod: 2,
-      damageMultiplier: 2.0,
-    };
-    default:
-      throw new Error('Unknown difficulty ' + difficulty);
   }
 }
 
 function getEnemies(node: ParserNode): Enemy[] {
-  let enemies: Enemy[] = [];
+  const enemies: Enemy[] = [];
   node.loopChildren((tag, c) => {
     if (tag !== 'e') {
       return;
     }
-    let text = c.text();
+    const text = c.text();
     const encounter = encounters[text.toLowerCase()];
 
     if (!encounter) {
@@ -74,15 +85,21 @@ function generateCombatAttack(node: ParserNode, settings: SettingsType, elapsedM
 
   // Attack once for each tier
   let damage = 0;
-  for (var i = 0; i < attackCount; i++) {
+  for (let i = 0; i < attackCount; i++) {
     damage += randomAttackDamage();
   }
 
   // Scale according to multipliers, then round to nearest whole number and cap at 10 damage/round
-  damage = Math.min(10, Math.round(damage * combat.damageMultiplier * playerMultiplier));
+  damage = damage * combat.damageMultiplier * playerMultiplier;
+  if (damage > 1) {
+    damage = Math.round(damage);
+  } else { // prevent endless 0's during low-tier, <4 player encounters
+    damage = Math.ceil(damage);
+  }
+  damage = Math.min(10, damage);
 
   return {
-    surge: isSurgeRound(node),
+    surge: isSurgeNextRound(node),
     damage,
   }
 }
@@ -148,10 +165,79 @@ function randomAttackDamage() {
   }
 };
 
-export function isSurgeRound(node: ParserNode): boolean {
+export function isSurgeRound(rounds: number, surgePd: number): boolean {
+  return (surgePd - ((rounds - 1) % surgePd + 1)) === 0;
+}
+
+export function isSurgeNextRound(node: ParserNode): boolean {
   const rounds = node.ctx.templates.combat.roundCount;
   const surgePd = node.ctx.templates.combat.surgePeriod;
-  return (surgePd - (rounds % surgePd + 1)) === 0;
+  return isSurgeRound(rounds + 1, surgePd);
+}
+
+export function handleResolvePhase(node: ParserNode) {
+  // Handles resolution, with a hook for if a <choice on="round"/> tag is specified.
+  // Note that handling new combat nodes within a "round" handler has undefined
+  // behavior and should be prevented when compiled.
+  return (dispatch: Redux.Dispatch<any>): any => {
+    if (node.getVisibleKeys().indexOf('round') !== -1) {
+      node = node.clone();
+      node.ctx.templates.combat.roleplay = node.getNext('round');
+      // Set node *before* navigation to prevent a blank first roleplay card.
+      dispatch({type: 'QUEST_NODE', node: node} as QuestNodeAction);
+      dispatch(toCard('QUEST_CARD', 'ROLEPLAY', true));
+    } else {
+      dispatch(toCard('QUEST_CARD', 'RESOLVE_ABILITIES', true));
+      dispatch({type: 'QUEST_NODE', node: node} as QuestNodeAction);
+    }
+  }
+}
+
+export function midCombatChoice(settings: SettingsType, parent: ParserNode, index: number) {
+  return (dispatch: Redux.Dispatch<any>): any => {
+    parent = parent.clone();
+    const node = parent.ctx.templates.combat.roleplay;
+    let next = node.getNext(index);
+
+    // Check for and resolve non-goto triggers
+    const tag = next && next.getTag();
+    if (tag === 'trigger' && !next.elem.text().toLowerCase().startsWith('goto')) {
+
+      // End the quest if end trigger
+      const triggerName = next.elem.text().trim();
+      if (triggerName === 'end') {
+        return dispatch(toCard('QUEST_END'));
+      }
+
+      next = handleTriggerEvent(next);
+
+      // If the trigger exits via the win/lose handlers, load it as normal.
+      // Otherwise, we're still in combat.
+      const parentCondition = next.elem.parent().attr('on');
+      if (parentCondition === 'win' || parentCondition === 'lose') {
+        return dispatch(loadNode(settings, next));
+      }
+    }
+
+    // Check if the next node is inside a combat node. Note that nested combat nodes are
+    // not currently supported.
+    let ptr = next && next.elem;
+    while (ptr !== null && ptr.length > 0 && ptr.get(0).tagName.toLowerCase() !== 'combat') {
+      ptr = ptr.parent();
+    }
+
+    // Check if we're still a child of the combat node or else doing something weird.
+    if (!next || next.getTag() !== 'roleplay' || !ptr || ptr.length === 0) {
+      // If so, then continue with the resolution phase.
+      parent.ctx.templates.combat.roleplay = null;
+      dispatch(toCard('QUEST_CARD', 'RESOLVE_ABILITIES', true));
+    } else {
+      // Otherwise continue the roleplay phase.
+      parent.ctx.templates.combat.roleplay = next;
+      dispatch(toCard('QUEST_CARD', 'ROLEPLAY', true));
+    }
+    dispatch({type: 'QUEST_NODE', node: parent} as QuestNodeAction);
+  }
 }
 
 export function handleCombatTimerStop(node: ParserNode, settings: SettingsType, elapsedMillis: number) {
@@ -161,8 +247,16 @@ export function handleCombatTimerStop(node: ParserNode, settings: SettingsType, 
     node.ctx.templates.combat.mostRecentRolls = generateRolls(settings.numPlayers);
     node.ctx.templates.combat.roundCount++;
 
-    dispatch(toCard('QUEST_CARD', (node.ctx.templates.combat.mostRecentAttack.surge) ? 'SURGE' : 'RESOLVE_ABILITIES', true));
-    dispatch({type: 'QUEST_NODE', node: node} as QuestNodeAction);
+    if (node.ctx.templates.combat.mostRecentAttack.surge) {
+      // Since we always skip the previous card (the timer) when going back,
+      // We can preset the quest node here. This populates context in a way that
+      // the latest round is considered when the "on round" branch is evaluated.
+      dispatch({type: 'QUEST_NODE', node: node} as QuestNodeAction);
+      dispatch(toCard('QUEST_CARD', 'SURGE', true));
+
+    } else {
+      dispatch(handleResolvePhase(node));
+    }
   };
 }
 
@@ -177,34 +271,6 @@ export function handleCombatEnd(node: ParserNode, settings: SettingsType, victor
   };
 }
 
-export function initCombat(node: ParserNode, settings: SettingsType, custom?: boolean) {
-  return (dispatch: Redux.Dispatch<any>): any => {
-    let tierSum: number = 0;
-    let enemies: Enemy[] = [];
-    if (node.elem) {
-      enemies = getEnemies(node);
-      for (let enemy of enemies) {
-        tierSum += enemy.tier;
-      }
-    }
-    node = node.clone();
-    node.ctx.templates.combat = {
-      custom: custom || false,
-      enemies,
-      roundCount: 0,
-      numAliveAdventurers: settings.numPlayers,
-      tier: tierSum,
-      ...getDifficultySettings(settings.difficulty),
-    };
-    dispatch(toCard('QUEST_CARD', 'DRAW_ENEMIES'));
-    dispatch({type: 'QUEST_NODE', node} as QuestNodeAction);
-  };
-}
-
-export function initCustomCombat(settings: SettingsType) {
-  return initCombat(new ParserNode(cheerio.load('<combat></combat>')('combat'), defaultQuestContext()), settings, true);
-}
-
 export function tierSumDelta(node: ParserNode, delta: number): QuestNodeAction {
   node = node.clone();
   node.ctx.templates.combat.tier = Math.max(node.ctx.templates.combat.tier + delta, 0);
@@ -217,4 +283,3 @@ export function adventurerDelta(node: ParserNode, settings: SettingsType, delta:
   node.ctx.templates.combat.numAliveAdventurers = newAdventurerCount;
   return {type: 'QUEST_NODE', node};
 }
-

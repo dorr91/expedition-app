@@ -16,6 +16,7 @@ const styles = {
   },
 };
 
+// TODO: use new ES6 syntax
 export default class MultiTouchTrigger extends React.Component<MultiTouchTriggerProps, {}> {
   ctx: any;
   canvas: any;
@@ -23,8 +24,8 @@ export default class MultiTouchTrigger extends React.Component<MultiTouchTrigger
   mouseDown: Boolean;
 
   _touchEvent(e: any) {
-    var xyArray: number[][] = [];
-    for (var i = 0; i < e.touches.length; i++) {
+    const xyArray: number[][] = [];
+    for (let i = 0; i < e.touches.length; i++) {
       xyArray.push([e.touches[i].clientX, e.touches[i].clientY]);
     }
     this._processInput(xyArray);
@@ -58,7 +59,7 @@ export default class MultiTouchTrigger extends React.Component<MultiTouchTrigger
 
     const inputs = this.inputArray;
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    for (var i = 0; i < inputs.length; i++) {
+    for (let i = 0; i < inputs.length; i++) {
       this.ctx.fillStyle = styles.center.color;
       this.ctx.beginPath();
       this.ctx.arc(inputs[i][0], inputs[i][1], styles.center.radius, 0, 2 * Math.PI, false);

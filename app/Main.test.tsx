@@ -1,12 +1,12 @@
 import configureStore  from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import {init} from './React'
+import {init} from './Main'
 import {installStore} from './Store'
-import {setDocument, setWindow, setDevice} from './Globals'
+import {setDocument, setWindow} from './Globals'
 
 function dummyDOM(): Document {
   const doc = document.implementation.createHTMLDocument('testdoc');
-  let result = document.createElement('div');
+  const result = document.createElement('div');
   result.id = 'react-app';
   doc.body.appendChild(result);
 
@@ -22,7 +22,7 @@ function dummyDOM(): Document {
     if (!evtListeners[e.type]) {
       return false;
     }
-    for (let f of evtListeners[e.type]) {
+    for (const f of evtListeners[e.type]) {
       f(e);
     }
     return true;
@@ -31,32 +31,16 @@ function dummyDOM(): Document {
   return doc;
 }
 
-function dummyGAPI(): any {
-  return {
-    load: (lib: string, cb: () => any) => {cb()},
-    client: {
-      setApiKey: (key: string) => {},
-    },
-    auth2: {
-      init: (settings: any) => {
-        return {
-          then: (fn: () => any) => {fn();}
-        };
-      },
-    },
-  };
-}
-
 const mockStore = configureStore([thunk]);
 
 describe('React', () => {
   describe('init', () => {
-    it('sets up tap events');
-    it('loads google APIs');
-    it('sets up event logging');
-    it('uses dummy logging if Firebase not loaded');
-    it('sets up hot reload');
-    it('handles no hot reloading');
+    it('sets up tap events');  // $10
+    it('loads google APIs');  // $10
+    it('sets up event logging'); // $10
+    it('uses dummy logging if Firebase not loaded'); // $10
+    it('sets up hot reload'); // $12
+    it('handles no hot reloading');  // $10
 
     describe('deviceready event', () => {
       it('triggers silent login'); // Holding off on testing this one until we propagate window state better.
@@ -89,8 +73,8 @@ describe('React', () => {
   });
 
   describe('logEvent', () => {
-    it('logs to firebase');
-    it('logs to google analytics if GA set up');
+    it('logs to firebase if firebase set up'); // $10
+    it('logs to google analytics if GA set up'); // $10
   })
 
 });
