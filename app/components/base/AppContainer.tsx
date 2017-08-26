@@ -15,6 +15,7 @@ import QuestEndContainer from '../QuestEndContainer'
 import {renderCardTemplate} from '../../cardtemplates/Template'
 
 import {closeSnackbar} from '../../actions/Snackbar'
+import {initialState} from '../../reducers/Snackbar'
 import {AppStateWithHistory, TransitionType, SearchPhase, SnackbarState} from '../../reducers/StateTypes'
 import {getStore} from '../../Store'
 
@@ -24,17 +25,24 @@ interface MainProps extends React.Props<any> {}
 
 export default class Main extends React.Component<MainProps, {}> {
   state: {key: number, transition: TransitionType, card: JSX.Element, snackbar: SnackbarState};
+  storeUnsubscribeHandle: () => any;
 
   constructor(props: MainProps) {
     super(props);
     this.state = this.getUpdatedState();
-    getStore().subscribe(this.handleChange.bind(this));
+    this.storeUnsubscribeHandle = getStore().subscribe(this.handleChange.bind(this));
+  }
+
+  componentWillUnmount() {
+    // 2017-08-16: Failing to unsubscribe here is likely to have caused unnecessary references to previous
+    // JS objects, which prevents garbage collection and causes runaway memory consumption.
+    this.storeUnsubscribeHandle();
   }
 
   getUpdatedState() {
     const state: AppStateWithHistory = getStore().getState();
     if (state === undefined || this.state === undefined || Object.keys(state).length === 0) {
-      return {key: 0, transition: 'INSTANT' as TransitionType, card: <SplashScreenContainer/>, snackbar: { open: false, message: '' }};
+      return {key: 0, transition: 'INSTANT' as TransitionType, card: <SplashScreenContainer/>, snackbar: initialState};
     }
 
     if (state.snackbar.open !== this.state.snackbar.open) {
